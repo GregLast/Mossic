@@ -1,46 +1,110 @@
-grogwart.title {
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+
+<style>
+body {
+  margin: 0;
+  background: transparent;
+  font-family: Arial, sans-serif;
+}
+
+/* CARD */
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  width: 380px;
+  padding: 12px 14px;
+
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border-radius: 16px;
+  color: white;
+
+  opacity: 0;
+  transform: translateY(6px);
+  transition: 0.4s ease;
+}
+
+.card.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* POP ANIMATION */
+.card.pop {
+  animation: pop 0.3s ease;
+}
+
+@keyframes pop {
+  0% { transform: scale(0.98); }
+  50% { transform: scale(1.02); }
+  100% { transform: scale(1); }
+}
+
+/* ALBUM ART */
+#art {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #333;
+}
+
+/* TEXT */
+.text {
+  flex: 1;
+  overflow: hidden;
+}
+
+.label {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+.title {
   font-size: 15px;
   font-weight: bold;
   white-space: nowrap;
   overflow: hidden;
 }
 
-.title span {
-  display: inline-block;
-}
-
-/* ARTIST */
 .artist {
   font-size: 13px;
   opacity: 0.85;
   margin-top: 2px;
 }
 
-/* PROGRESS */
-.bar {
+/* LIVE VISUALIZER */
+.livebar {
   margin-top: 8px;
-  height: 6px;
-  width: 100%;
-  background: rgba(255,255,255,0.15);
-  border-radius: 999px;
-  overflow: hidden;
-}
-
-.fill {
-  height: 100%;
-  width: 0%;
-  background: linear-gradient(90deg, #7c5cff, #00d4ff);
-  border-radius: 999px;
-  transition: width 0.4s linear;
-}
-
-/* TIME */
-.time {
-  font-size: 11px;
-  opacity: 0.75;
-  margin-top: 6px;
   display: flex;
-  justify-content: space-between;
+  gap: 3px;
+  align-items: end;
+  height: 10px;
+}
+
+.livebar span {
+  width: 3px;
+  height: 4px;
+  background: linear-gradient(180deg, #7c5cff, #00d4ff);
+  border-radius: 2px;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+.livebar span:nth-child(2) { animation-delay: 0.1s; }
+.livebar span:nth-child(3) { animation-delay: 0.2s; }
+.livebar span:nth-child(4) { animation-delay: 0.3s; }
+
+@keyframes bounce {
+  0%,100% { height: 4px; opacity: 0.4; }
+  50% { height: 10px; opacity: 1; }
 }
 </style>
 </head>
@@ -48,24 +112,16 @@ grogwart.title {
 <body>
 
 <div class="card" id="card">
-  <img id="art" src="" />
+  <img id="art" />
 
   <div class="text">
     <div class="label">NOW PLAYING</div>
 
-    <div class="title">
-      <span id="title">Nothing playing</span>
-    </div>
-
+    <div class="title" id="title">Waiting for music...</div>
     <div class="artist" id="artist"></div>
 
-    <div class="bar">
-      <div class="fill" id="fill"></div>
-    </div>
-
-    <div class="time">
-      <span id="currentTime">0:00</span>
-      <span id="totalTime">0:00</span>
+    <div class="livebar">
+      <span></span><span></span><span></span><span></span>
     </div>
   </div>
 </div>
@@ -74,26 +130,8 @@ grogwart.title {
 const API_KEY = "c164eddec12d53ff3dccf5e010da1617";
 const USER = "grogwart";
 
-let activeTrackId = "";
-let trackStartTime = 0;
-let trackDuration = 0;
+let activeId = "";
 
-/* FORMAT TIME */
-function formatTime(sec) {
-  const m = Math.floor(sec / 60);
-  const s = Math.floor(sec % 60);
-  return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-/* SCROLL (simple safe version) */
-function resetScroll(el) {
-  const span = el.querySelector("span");
-  if (!span) return;
-
-  span.style.transform = "translateX(0)";
-}
-
-/* MAIN UPDATE */
 async function update() {
   try {
     const url =
@@ -106,28 +144,24 @@ async function update() {
     if (!track) return;
 
     const isPlaying = track["@attr"]?.nowplaying === "true";
+
     if (!isPlaying) {
       document.getElementById("card").classList.remove("show");
       return;
     }
 
-    const title = track?.name || "Unknown track";
+    const title = track.name || "Unknown track";
     const artist = track?.artist?.["#text"] || "Unknown artist";
-
     const id = title + artist;
+
     const card = document.getElementById("card");
 
     if (id !== activeId) {
       activeId = id;
 
-      // TEXT (SAFE)
-      const titleEl = document.getElementById("title");
-      const artistEl = document.getElementById("artist");
+      document.getElementById("title").textContent = title;
+      document.getElementById("artist").textContent = artist;
 
-      titleEl.textContent = title;
-      artistEl.textContent = artist;
-
-      // ART (SAFE)
       const img =
         track?.image?.[2]?.["#text"] ||
         track?.image?.[1]?.["#text"] ||
@@ -136,88 +170,22 @@ async function update() {
 
       document.getElementById("art").src = img;
 
-      // SHOW CARD
       card.classList.add("show");
       card.classList.remove("pop");
       void card.offsetWidth;
       card.classList.add("pop");
-
-      console.log("Track updated:", title, artist);
     }
 
     card.classList.add("show");
 
   } catch (err) {
     console.error("Overlay error:", err);
+
+    document.getElementById("title").textContent = "Connection error";
+    document.getElementById("artist").textContent = "Check Last.fm setup";
   }
 }
-  }
 
-  const id = track.name + track.artist["#text"];
-
-  const card = document.getElementById("card");
-
-  /* TRACK CHANGE */
-  if (id !== activeTrackId) {
-    activeTrackId = id;
-
-    trackStartTime = Date.now();
-    trackDuration =
-  navigator.mediaSession?.metadata?.duration || 0;
-
-    // UI updates
-    document.getElementById("title").innerHTML =
-      `<span>${track.name}</span>`;
-    document.getElementById("artist").textContent =
-      track.artist["#text"];
-
-    const img =
-      track.image?.[2]?.["#text"] ||
-      track.image?.[1]?.["#text"] ||
-      track.image?.[0]?.["#text"] ||
-      "";
-
-    document.getElementById("art").src = img;
-
-    document.getElementById("totalTime").textContent =
-      trackDuration ? formatTime(trackDuration / 1000) : "0:00";
-
-    document.getElementById("fill").style.width = "0%";
-
-    resetScroll(document.querySelector(".title"));
-
-    /* animations */
-    card.classList.add("show");
-    card.classList.remove("pop");
-    void card.offsetWidth;
-    card.classList.add("pop");
-  }
-
-  card.classList.add("show");
-}
-
-/* LIVE PROGRESS LOOP */
-setInterval(() => {
-  if (!activeTrackId || !trackDuration) return;
-
-  const elapsed = Date.now() - trackStartTime;
-
-  const totalMs = trackDuration;
-
-  const sec = Math.floor(elapsed / 1000);
-  const totalSec = Math.floor(totalMs / 1000);
-
-  document.getElementById("currentTime").textContent =
-    formatTime(sec);
-
-  document.getElementById("totalTime").textContent =
-    formatTime(totalSec);
-
-  const pct = Math.min((elapsed / totalMs) * 100, 100);
-  document.getElementById("fill").style.width = pct + "%";
-}, 500);
-
-/* FETCH LOOP */
 setInterval(update, 4000);
 update();
 </script>
