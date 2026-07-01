@@ -1,47 +1,217 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <style>
-    body {
-      margin: 0;
-      background: transparent;
-      font-family: Arial;
-      color: white;
-      text-shadow: 0 2px 6px black;
-    }
-    #song {
-      font-size: 22px;
-      padding: 10px;
-    }
-  </style>
+<meta charset="UTF-8" />
+<title>Now Playing Overlay</title>
+
+<style>
+body {
+  margin: 0;
+  background: transparent;
+  font-family: Arial, sans-serif;
+}
+
+/* MAIN CARD */
+.card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  padding: 12px 14px;
+  width: 360px;
+
+  background: rgba(20, 20, 20, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  border-radius: 16px;
+  color: white;
+
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.card.show {
+  opacity: 1;
+  transform: translateY(0px);
+}
+
+/* ALBUM ART */
+#art {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #333;
+}
+
+/* TEXT AREA */
+.text {
+  flex: 1;
+  overflow: hidden;
+}
+
+/* LABEL */
+.label {
+  font-size: 11px;
+  opacity: 0.7;
+  margin-bottom: 4px;
+}
+
+/* TITLE + SCROLL */
+.title {
+  font-size: 15px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+
+/* scrolling animation only when needed */
+.title span {
+  display: inline-block;
+}
+
+/* ARTIST */
+.artist {
+  font-size: 13px;
+  opacity: 0.85;
+  margin-top: 2px;
+}
+
+/* PROGRESS BAR */
+.bar {
+  margin-top: 8px;
+  height: 6px;
+  width: 100%;
+  background: rgba(255,255,255,0.15);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #7c5cff, #00d4ff);
+  border-radius: 999px;
+  transition: width 1s linear;
+}
+</style>
 </head>
+
 <body>
-  <div id="song">Nothing playing</div>
 
-  <script>
-    const API_KEY = "c164eddec12d53ff3dccf5e010da1617";
-    const USER = "grogwart";
+<div class="card" id="card">
+  <img id="art" src="" />
 
-    async function update() {
-      const url =
-        `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${USER}&api_key=${API_KEY}&format=json&limit=1`;
+  <div class="text">
+    <div class="label">NOW PLAYING</div>
 
-      const res = await fetch(url);
-      const data = await res.json();
+    <div class="title">
+      <span id="title">Nothing playing</span>
+    </div>
 
-      const track = data.recenttracks.track[0];
+    <div class="artist" id="artist"></div>
 
-      if (track && track["@attr"]?.nowplaying === "true") {
-        document.getElementById("song").innerText =
-          `${track.name} — ${track.artist["#text"]}`;
-      } else {
-        document.getElementById("song").innerText =
-          "Nothing playing";
+    <div class="bar">
+      <div class="fill" id="fill"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_KEY = "c164eddec12d53ff3dccf5e010da1617";
+const USER = "grogwart";
+
+let lastTrackId = "";
+
+function animateScrollIfNeeded(el) {
+  const span = el.querySelector("span");
+  if (!span) return;
+
+  // reset
+  span.style.transform = "translateX(0)";
+  span.style.transition = "none";
+
+  const overflow = span.scrollWidth > el.clientWidth;
+
+  if (!overflow) return;
+
+  let pos = 0;
+  span.style.transition = "none";
+
+  setInterval(() => {
+    pos -= 0.5;
+    if (Math.abs(pos) > span.scrollWidth) pos = el.clientWidth;
+    span.style.transform = `translateX(${pos}px)`;
+  }, 16);
+}
+
+async function update() {
+  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${USER}&api_key=${API_KEY}&format=json&limit=1`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const track = data.recenttracks.track[0];
+  if (!track) return;
+
+  const isNowPlaying = track["@attr"]?.nowplaying === "true";
+
+  const id = track.name + track.artist["#text"];
+  const card = document.getElementById("card");
+
+  if (!isNowPlaying) {
+    card.classList.remove("show");
+    return;
+  }
+
+  if (id !== lastTrackId) {
+    lastTrackId = id;
+
+    // TEXT
+    const titleEl = document.getElementById("title");
+    const artistEl = document.getElementById("artist");
+
+    titleEl.innerHTML = `<span>${track.name}</span>`;
+    artistEl.textContent = track.artist["#text"];
+
+    // ART
+    const img = track.image?.[2]?.["#text"] || "";
+    document.getElementById("art").src = img || "";
+
+    // RESET BAR
+    document.getElementById("fill").style.width = "0%";
+
+    // fade in
+    card.classList.add("show");
+
+    animateScrollIfNeeded(document.querySelector(".title"));
+  }
+
+  // PROGRESS BAR (approx via duration if available)
+  if (track.duration) {
+    const duration = parseInt(track.duration);
+    let start = Date.now();
+
+    const interval = setInterval(() => {
+      if (lastTrackId !== id) {
+        clearInterval(interval);
+        return;
       }
-    }
 
-    setInterval(update, 3000);
-    update();
-  </script>
+      const elapsed = Date.now() - start;
+      const pct = Math.min((elapsed / duration) * 100, 100);
+
+      document.getElementById("fill").style.width = pct + "%";
+    }, 1000);
+  }
+}
+
+setInterval(update, 4000);
+update();
+</script>
+
 </body>
 </html>
