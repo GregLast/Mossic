@@ -95,18 +95,62 @@ function resetScroll(el) {
 
 /* MAIN UPDATE */
 async function update() {
-  const url = `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${USER}&api_key=${API_KEY}&format=json&limit=1`;
+  try {
+    const url =
+      `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${USER}&api_key=${API_KEY}&format=json&limit=1`;
 
-  const res = await fetch(url);
-  const data = await res.json();
+    const res = await fetch(url);
+    const data = await res.json();
 
-  const track = data.recenttracks.track[0];
-  if (!track) return;
+    const track = data?.recenttracks?.track?.[0];
+    if (!track) return;
 
-  const isNowPlaying = track["@attr"]?.nowplaying === "true";
-  if (!isNowPlaying) {
-    document.getElementById("card").classList.remove("show");
-    return;
+    const isPlaying = track["@attr"]?.nowplaying === "true";
+    if (!isPlaying) {
+      document.getElementById("card").classList.remove("show");
+      return;
+    }
+
+    const title = track?.name || "Unknown track";
+    const artist = track?.artist?.["#text"] || "Unknown artist";
+
+    const id = title + artist;
+    const card = document.getElementById("card");
+
+    if (id !== activeId) {
+      activeId = id;
+
+      // TEXT (SAFE)
+      const titleEl = document.getElementById("title");
+      const artistEl = document.getElementById("artist");
+
+      titleEl.textContent = title;
+      artistEl.textContent = artist;
+
+      // ART (SAFE)
+      const img =
+        track?.image?.[2]?.["#text"] ||
+        track?.image?.[1]?.["#text"] ||
+        track?.image?.[0]?.["#text"] ||
+        "";
+
+      document.getElementById("art").src = img;
+
+      // SHOW CARD
+      card.classList.add("show");
+      card.classList.remove("pop");
+      void card.offsetWidth;
+      card.classList.add("pop");
+
+      console.log("Track updated:", title, artist);
+    }
+
+    card.classList.add("show");
+
+  } catch (err) {
+    console.error("Overlay error:", err);
+  }
+}
   }
 
   const id = track.name + track.artist["#text"];
