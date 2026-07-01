@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      margin: 0;
+      background: transparent;
+      font-family: Arial;
+      color: white;
+      text-shadow: 0 2px 6px black;
+    }
+    #song {
+      font-size: 22px;
+      padding: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div id="song">Nothing playing</div>
+
+  <script>
+    const API_KEY = "YOUR_LASTFM_API_KEY";
+    const USER = "YOUR_LASTFM_USERNAME";
+
+    async function update() {
+      const url =
+        `https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=${USER}&api_key=${API_KEY}&format=json&limit=1`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      const track = data.recenttracks.track[0];
+
+      if (track && track["@attr"]?.nowplaying === "true") {
+        document.getElementById("song").innerText =
+          `${track.name} — ${track.artist["#text"]}`;
+      } else {
+        document.getElementById("song").innerText =
+          "Nothing playing";
+      }
+    }
+
+    setInterval(update, 3000);
+    update();
+  </script>
+</body>
+</html>
