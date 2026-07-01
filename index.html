@@ -197,7 +197,8 @@ async function update() {
     activeTrackId = id;
 
     trackStartTime = Date.now();
-    trackDuration = parseInt(track.duration || 0);
+    trackDuration =
+  navigator.mediaSession?.metadata?.duration || 0;
 
     // UI updates
     document.getElementById("title").innerHTML =
@@ -236,13 +237,18 @@ setInterval(() => {
 
   const elapsed = Date.now() - trackStartTime;
 
+  const totalMs = trackDuration;
+
   const sec = Math.floor(elapsed / 1000);
-  const total = Math.floor(trackDuration / 1000);
+  const totalSec = Math.floor(totalMs / 1000);
 
   document.getElementById("currentTime").textContent =
     formatTime(sec);
 
-  const pct = Math.min((elapsed / trackDuration) * 100, 100);
+  document.getElementById("totalTime").textContent =
+    formatTime(totalSec);
+
+  const pct = Math.min((elapsed / totalMs) * 100, 100);
   document.getElementById("fill").style.width = pct + "%";
 }, 500);
 
